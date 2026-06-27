@@ -4,7 +4,7 @@ import { collection, getDocs, orderBy, query } from 'firebase/firestore'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 const incomeKeys = ['basic','allowance','phone','petrol','bonus','exGratia','professional','otherIncome']
-const deductionKeys = ['epf','socso','eis','otherDeduction']
+const deductionKeys = ['epf','socso','eis','pcb','otherDeduction']
 const sum = (e, keys) => keys.reduce((s, k) => s + (e[k] || 0), 0)
 
 function formatRM(n) {
@@ -28,7 +28,8 @@ export default function Insights() {
     const yEntries = entries.filter(e => e.entryDate?.startsWith(y))
     const gross = yEntries.reduce((s, e) => s + sum(e, incomeKeys), 0)
     const deduction = yEntries.reduce((s, e) => s + sum(e, deductionKeys), 0)
-    return { year: y, gross, deduction, net: gross - deduction }
+    const pcb = yEntries.reduce((s, e) => s + (e.pcb || 0), 0)
+    return { year: y, gross, deduction, net: gross - deduction, pcb }
   })
 
   return (
@@ -62,6 +63,7 @@ export default function Insights() {
                   <span className="font-medium text-white">{y.year}</span>
                   <span>Gross {formatRM(y.gross)}</span>
                   <span>Net {formatRM(y.net)}</span>
+                  <span>PCB {formatRM(y.pcb)}</span>
                   {change !== null && (
                     <span className={change >= 0 ? 'text-cyan-400' : 'text-fuchsia-400'}>
                       {change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {prev.year}

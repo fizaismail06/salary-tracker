@@ -4,7 +4,7 @@ import { collection, getDocs, orderBy, query, deleteDoc, doc } from 'firebase/fi
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
 const incomeKeys = ['basic','allowance','phone','petrol','bonus','exGratia','professional','otherIncome']
-const deductionKeys = ['epf','socso','eis','otherDeduction']
+const deductionKeys = ['epf','socso','eis','pcb','otherDeduction']
 const sum = (e, keys) => keys.reduce((s, k) => s + (e[k] || 0), 0)
 const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -13,7 +13,7 @@ function formatRM(n) {
 }
 
 function toCSV(rows) {
-  const headers = ['Month','Employer','Basic','Allowance','Phone','Petrol','Bonus','Ex Gratia','Professional','Other Income','EPF','SOCSO','EIS','Other Deduction','Gross Income','Total Deduction','Net Income','Projection','Notes']
+  const headers = ['Month','Employer','Basic','Allowance','Phone','Petrol','Bonus','Ex Gratia','Professional','Other Income','EPF','SOCSO','EIS','PCB','Other Deduction','Gross Income','Total Deduction','Net Income','Projection','Notes']
   const lines = [headers.join(',')]
   rows.forEach(e => {
     const gross = sum(e, incomeKeys)
@@ -21,7 +21,7 @@ function toCSV(rows) {
     const net = gross - deduction
     const vals = [
       e.entryDate, e.employer, e.basic, e.allowance, e.phone, e.petrol, e.bonus, e.exGratia,
-      e.professional, e.otherIncome, e.epf, e.socso, e.eis, e.otherDeduction,
+      e.professional, e.otherIncome, e.epf, e.socso, e.eis, e.pcb, e.otherDeduction,
       gross.toFixed(2), deduction.toFixed(2), net.toFixed(2),
       e.isProjection ? 'Yes' : 'No', e.notes || ''
     ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`)
@@ -57,6 +57,7 @@ export default function Dashboard({ onEdit }) {
   const projectionCount = filtered.filter(e => e.isProjection).length
   const totalIncome = filtered.reduce((s, e) => s + sum(e, incomeKeys), 0)
   const totalDeduction = filtered.reduce((s, e) => s + sum(e, deductionKeys), 0)
+  const totalPCB = filtered.reduce((s, e) => s + (e.pcb || 0), 0)
 
   const chartData = filtered.map(e => ({
     month: monthNames[parseInt(e.entryDate?.slice(5, 7), 10) - 1] || e.entryDate,
@@ -120,6 +121,10 @@ export default function Dashboard({ onEdit }) {
         <Stat label="Gross income" value={totalIncome} />
         <Stat label="Total deductions" value={totalDeduction} />
         <Stat label="Net income" value={totalIncome - totalDeduction} highlight />
+        <Stat label="PCB paid" value={totalPCB} />
+      </div>
+
+      <div className="mb-4">
         <Stat label="Entries" value={filtered.length} isCount />
       </div>
 

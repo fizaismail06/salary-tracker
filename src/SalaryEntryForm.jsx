@@ -7,7 +7,7 @@ const fields = [
   ['petrol', 'Petrol'], ['bonus', 'Bonus'], ['exGratia', 'Ex Gratia'],
   ['professional', 'Professional'], ['otherIncome', 'Other income'],
   ['epf', 'EPF / KWSP'], ['socso', 'SOCSO'], ['eis', 'EIS / SIP'],
-  ['otherDeduction', 'Other deduction'],
+  ['pcb', 'PCB (tax deducted)'], ['otherDeduction', 'Other deduction'],
 ]
 
 const blank = { employer: '', entryDate: '', notes: '', isProjection: false }
