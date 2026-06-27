@@ -12,6 +12,24 @@ function formatRM(n) {
   return `RM${n.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
+function toCSV(rows) {
+  const headers = ['Month','Employer','Basic','Allowance','Phone','Petrol','Bonus','Ex Gratia','Professional','Other Income','EPF','SOCSO','EIS','Other Deduction','Gross Income','Total Deduction','Net Income','Projection','Notes']
+  const lines = [headers.join(',')]
+  rows.forEach(e => {
+    const gross = sum(e, incomeKeys)
+    const deduction = sum(e, deductionKeys)
+    const net = gross - deduction
+    const vals = [
+      e.entryDate, e.employer, e.basic, e.allowance, e.phone, e.petrol, e.bonus, e.exGratia,
+      e.professional, e.otherIncome, e.epf, e.socso, e.eis, e.otherDeduction,
+      gross.toFixed(2), deduction.toFixed(2), net.toFixed(2),
+      e.isProjection ? 'Yes' : 'No', e.notes || ''
+    ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`)
+    lines.push(vals.join(','))
+  })
+  return lines.join('\n')
+}
+
 export default function Dashboard({ onEdit }) {
   const [entries, setEntries] = useState([])
   const [year, setYear] = useState(new Date().getFullYear())
@@ -59,6 +77,17 @@ export default function Dashboard({ onEdit }) {
     setEntries(entries.filter(e => !toDelete.includes(e)))
   }
 
+  function handleExportCSV() {
+    const csv = toCSV(filtered)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `salary-${year}${month !== 'all' ? '-' + month : ''}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="p-4 max-w-2xl mx-auto">
       <div className="flex gap-2 mb-3 flex-wrap">
@@ -72,13 +101,20 @@ export default function Dashboard({ onEdit }) {
         ))}
       </div>
 
-      <select value={month} onChange={e => setMonth(e.target.value)}
-        className="bg-zinc-900 border border-fuchsia-500/30 rounded px-3 py-2 mb-4 text-sm text-white focus:outline-none focus:border-cyan-400">
-        <option value="all">All months</option>
-        {monthNames.map((m, i) => (
-          <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
-        ))}
-      </select>
+      <div className="flex gap-2 mb-4 items-center">
+        <select value={month} onChange={e => setMonth(e.target.value)}
+          className="bg-zinc-900 border border-fuchsia-500/30 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-400">
+          <option value="all">All months</option>
+          {monthNames.map((m, i) => (
+            <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
+          ))}
+        </select>
+
+        <button onClick={handleExportCSV}
+          className="text-sm px-3 py-2 rounded border border-cyan-400/40 text-cyan-300 hover:bg-cyan-400/10">
+          Export CSV
+        </button>
+      </div>
 
       <div className="grid grid-cols-2 gap-3 mb-4">
         <Stat label="Gross income" value={totalIncome} />
@@ -96,19 +132,13 @@ export default function Dashboard({ onEdit }) {
 
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={chartData}>
-          <defs>
-            <linearGradient id="neonBar" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#22d3ee" />
-              <stop offset="100%" stopColor="#d946ef" />
-            </linearGradient>
-          </defs>
           <XAxis dataKey="month" stroke="#a1a1aa" />
           <YAxis stroke="#a1a1aa" />
           <Tooltip
             formatter={(v) => formatRM(v)}
             contentStyle={{ background: '#18122b', border: '1px solid rgba(217,70,239,0.3)', color: '#fff' }}
           />
-          <Bar dataKey="net" fill="url(#neonBar)" radius={[4,4,0,0]} />
+          <Bar dataKey="net" fill="#d946ef" radius={[4,4,0,0]} />
         </BarChart>
       </ResponsiveContainer>
 

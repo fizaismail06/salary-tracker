@@ -5,6 +5,7 @@ import Auth from './Auth'
 import SalaryEntryForm from './SalaryEntryForm'
 import Dashboard from './Dashboard'
 import TaxCalculator from './TaxCalculator'
+import Insights from './Insights'
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -30,8 +31,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#0a0118]">
       <nav className="flex justify-between items-center border-b border-fuchsia-500/20 p-3 sticky top-0 bg-[#0a0118]/95 backdrop-blur z-10">
-        <div className="flex gap-2 mx-auto">
-          {['dashboard', 'entry', 'tax'].map(t => (
+        <div className="flex gap-2 mx-auto flex-wrap justify-center">
+          {['dashboard', 'entry', 'tax', 'insights'].map(t => (
             <button key={t} onClick={() => { setTab(t); if (t !== 'entry') setEditingEntry(null) }}
               className={tab === t
                 ? 'px-4 py-1.5 rounded-full text-sm font-semibold uppercase tracking-wide bg-gradient-to-r from-cyan-500 to-fuchsia-600 text-white shadow-[0_0_15px_rgba(217,70,239,0.5)]'
@@ -53,6 +54,7 @@ export default function App() {
         />
       )}
       {tab === 'tax' && <TaxCalculator />}
+      {tab === 'insights' && <Insights />}
     </div>
   )
 }
