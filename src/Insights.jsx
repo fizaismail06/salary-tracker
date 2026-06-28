@@ -11,6 +11,11 @@ function formatRM(n) {
   return `RM${n.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
+function pctChange(curr, prev) {
+  if (prev === 0 || prev == null) return null
+  return ((curr - prev) / prev) * 100
+}
+
 export default function Insights() {
   const [entries, setEntries] = useState([])
 
@@ -32,16 +37,34 @@ export default function Insights() {
     return { year: y, gross, deduction, net: gross - deduction, pcb }
   })
 
+  const rows = yearly.map((y, i) => {
+    const prev = yearly[i - 1]
+    return {
+      ...y,
+      grossChange: prev ? pctChange(y.gross, prev.gross) : null,
+      netChange: prev ? pctChange(y.net, prev.net) : null,
+    }
+  })
+
+  function ChangeCell({ value }) {
+    if (value === null) return <span className="text-zinc-500">—</span>
+    return (
+      <span className={value >= 0 ? 'text-cyan-400' : 'text-fuchsia-400'}>
+        {value >= 0 ? '+' : ''}{value.toFixed(1)}%
+      </span>
+    )
+  }
+
   return (
     <div className="p-4 max-w-2xl mx-auto">
       <h2 className="text-lg font-semibold mb-4 text-zinc-200">Year-over-year comparison</h2>
 
-      {yearly.length === 0 ? (
+      {rows.length === 0 ? (
         <p className="text-sm text-zinc-500">No entries yet — add some salary records first.</p>
       ) : (
         <>
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={yearly}>
+            <BarChart data={rows}>
               <XAxis dataKey="year" stroke="#a1a1aa" />
               <YAxis stroke="#a1a1aa" />
               <Tooltip
@@ -54,25 +77,32 @@ export default function Insights() {
             </BarChart>
           </ResponsiveContainer>
 
-          <ul className="mt-6 divide-y divide-fuchsia-500/10">
-            {yearly.map((y, i) => {
-              const prev = yearly[i - 1]
-              const change = prev && prev.net !== 0 ? ((y.net - prev.net) / prev.net) * 100 : null
-              return (
-                <li key={y.year} className="py-3 flex flex-wrap justify-between items-center gap-2 text-sm text-zinc-300">
-                  <span className="font-medium text-white">{y.year}</span>
-                  <span>Gross {formatRM(y.gross)}</span>
-                  <span>Net {formatRM(y.net)}</span>
-                  <span>PCB {formatRM(y.pcb)}</span>
-                  {change !== null && (
-                    <span className={change >= 0 ? 'text-cyan-400' : 'text-fuchsia-400'}>
-                      {change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {prev.year}
-                    </span>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
+          <div className="mt-6 overflow-x-auto rounded-lg border border-fuchsia-500/15">
+            <table className="w-full text-sm text-left border-collapse">
+              <thead>
+                <tr className="bg-zinc-900 text-zinc-400 uppercase text-xs tracking-wide">
+                  <th className="px-3 py-2 font-medium">Year</th>
+                  <th className="px-3 py-2 font-medium text-right">Gross</th>
+                  <th className="px-3 py-2 font-medium text-right">Net</th>
+                  <th className="px-3 py-2 font-medium text-right">PCB</th>
+                  <th className="px-3 py-2 font-medium text-right">% Gross</th>
+                  <th className="px-3 py-2 font-medium text-right">% Net</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-fuchsia-500/10">
+                {rows.map(r => (
+                  <tr key={r.year} className="text-zinc-300">
+                    <td className="px-3 py-2 font-medium text-white">{r.year}</td>
+                    <td className="px-3 py-2 text-right">{formatRM(r.gross)}</td>
+                    <td className="px-3 py-2 text-right">{formatRM(r.net)}</td>
+                    <td className="px-3 py-2 text-right">{formatRM(r.pcb)}</td>
+                    <td className="px-3 py-2 text-right"><ChangeCell value={r.grossChange} /></td>
+                    <td className="px-3 py-2 text-right"><ChangeCell value={r.netChange} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
     </div>
