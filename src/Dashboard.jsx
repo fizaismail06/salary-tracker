@@ -12,8 +12,18 @@ function formatRM(n) {
   return `RM${n.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
+function formatDate(d) {
+  if (!d) return ''
+  // Handle both YYYY-MM-DD and legacy YYYY-MM
+  if (d.length === 7) return d
+  const parts = d.split('-')
+  if (parts.length < 3) return d
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  return `${parts[2]} ${months[parseInt(parts[1], 10) - 1]} ${parts[0]}`
+}
+
 function toCSV(rows) {
-  const headers = ['Month','Employer','Basic','Allowance','Phone','Petrol','Bonus','Ex Gratia','Professional','Other Income','EPF','SOCSO','EIS','PCB','Other Deduction','Gross Income','Total Deduction','Net Income','Projection','Notes']
+  const headers = ['Date','Employer','Basic','Allowance','Phone','Petrol','Bonus','Ex Gratia','Professional','Other Income','EPF','SOCSO','EIS','PCB','Other Deduction','Gross Income','Total Deduction','Net Income','Projection','Notes']
   const lines = [headers.join(',')]
   rows.forEach(e => {
     const gross = sum(e, incomeKeys)
@@ -59,13 +69,20 @@ export default function Dashboard({ onEdit }) {
   const totalDeduction = filtered.reduce((s, e) => s + sum(e, deductionKeys), 0)
   const totalPCB = filtered.reduce((s, e) => s + (e.pcb || 0), 0)
 
-  const chartData = filtered.map(e => ({
-    month: monthNames[parseInt(e.entryDate?.slice(5, 7), 10) - 1] || e.entryDate,
-    net: sum(e, incomeKeys) - sum(e, deductionKeys)
-  }))
+  // Group by YYYY-MM for chart so same-month entries (e.g. salary + bonus) merge into one bar
+  const chartData = useMemo(() => {
+    const map = {}
+    filtered.forEach(e => {
+      const key = e.entryDate?.slice(0, 7) // YYYY-MM
+      const label = monthNames[parseInt(e.entryDate?.slice(5, 7), 10) - 1] || key
+      if (!map[key]) map[key] = { month: label, net: 0 }
+      map[key].net += sum(e, incomeKeys) - sum(e, deductionKeys)
+    })
+    return Object.values(map)
+  }, [filtered])
 
   async function handleDelete(entry) {
-    if (!confirm(`Delete the ${entry.entryDate} entry for ${entry.employer}? This can't be undone.`)) return
+    if (!confirm(`Delete the ${formatDate(entry.entryDate)} entry for ${entry.employer}? This can't be undone.`)) return
     await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'salaryEntries', entry.id))
     setEntries(entries.filter(e => e.id !== entry.id))
   }
@@ -110,7 +127,6 @@ export default function Dashboard({ onEdit }) {
             <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
           ))}
         </select>
-
         <button onClick={handleExportCSV}
           className="text-sm px-3 py-2 rounded border border-cyan-400/40 text-cyan-300 hover:bg-cyan-400/10">
           Export CSV
@@ -151,7 +167,7 @@ export default function Dashboard({ onEdit }) {
         {filtered.map(e => (
           <li key={e.id} className="py-2 flex justify-between items-center text-sm gap-2 text-zinc-300">
             <span className="flex-1">
-              {e.entryDate} — {e.employer}
+              {formatDate(e.entryDate)} — {e.employer}
               {e.isProjection && <span className="ml-2 text-xs bg-fuchsia-950/60 text-fuchsia-300 rounded px-1.5 py-0.5">projection</span>}
             </span>
             <span className="text-cyan-300">{formatRM(sum(e, incomeKeys))}</span>

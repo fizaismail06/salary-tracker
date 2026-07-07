@@ -24,8 +24,10 @@ export default function SalaryEntryForm({ editingEntry, onSaved, onCancel }) {
   async function save(e) {
     e.preventDefault()
     const payload = {
-      employer: form.employer, entryDate: form.entryDate,
-      notes: form.notes, isProjection: !!form.isProjection,
+      employer: form.employer,
+      entryDate: form.entryDate, // stored as YYYY-MM-DD
+      notes: form.notes,
+      isProjection: !!form.isProjection,
     }
     fields.forEach(([key]) => { payload[key] = parseFloat(form[key] || 0) })
 
@@ -52,7 +54,9 @@ export default function SalaryEntryForm({ editingEntry, onSaved, onCancel }) {
       <input placeholder="Employer name" value={form.employer}
         onChange={e => set('employer', e.target.value)} required
         className={inputClass} />
-      <input type="month" value={form.entryDate} onChange={e => set('entryDate', e.target.value)}
+
+      <label className="text-xs text-zinc-400">Date (day of payment or bonus date)</label>
+      <input type="date" value={form.entryDate} onChange={e => set('entryDate', e.target.value)}
         required className={inputClass} />
 
       {fields.map(([key, label]) => (
