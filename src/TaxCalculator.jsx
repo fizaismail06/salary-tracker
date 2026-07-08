@@ -11,6 +11,7 @@ export default function TaxCalculator() {
   const [brackets, setBrackets] = useState([])
   const [reliefs, setReliefs] = useState([])
   const [zakatPaid, setZakatPaid] = useState('')
+  const [pcbPaid, setPcbPaid] = useState('')
   const [annualIncome, setAnnualIncome] = useState('')
 
   useEffect(() => { loadYear(year) }, [year])
@@ -22,7 +23,21 @@ export default function TaxCalculator() {
     const zDoc = await getDoc(doc(db, 'users', uid, 'taxSettings', String(y)))
     setBrackets(bSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => a.bandOrder - b.bandOrder))
     setReliefs(rSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-    setZakatPaid(zDoc.exists() ? String(zDoc.data().zakatPaid ?? '') : '')
+    if (zDoc.exists()) {
+      setZakatPaid(String(zDoc.data().zakatPaid ?? ''))
+      setPcbPaid(String(zDoc.data().pcbPaid ?? ''))
+    } else {
+      setZakatPaid('')
+      setPcbPaid('')
+    }
+  }
+
+  async function saveSettings() {
+    const uid = auth.currentUser.uid
+    await setDoc(doc(db, 'users', uid, 'taxSettings', String(year)), {
+      zakatPaid: zakatPaid === '' ? null : parseFloat(zakatPaid),
+      pcbPaid: pcbPaid === '' ? null : parseFloat(pcbPaid),
+    }, { merge: true })
   }
 
   async function addBracketRow() {
@@ -63,13 +78,6 @@ export default function TaxCalculator() {
     setReliefs(reliefs.filter(r => r.id !== row.id))
   }
 
-  async function saveZakat(val) {
-    const uid = auth.currentUser.uid
-    await setDoc(doc(db, 'users', uid, 'taxSettings', String(year)), {
-      zakatPaid: val === '' ? null : parseFloat(val)
-    }, { merge: true })
-  }
-
   function calculate() {
     const totalRelief = reliefs.reduce((s, r) => s + (r.amount || 0), 0)
     const chargeable = Math.max(0, parseFloat(annualIncome || 0) - totalRelief)
@@ -85,8 +93,9 @@ export default function TaxCalculator() {
       if (remaining <= 0) break
     }
     const zakat = parseFloat(zakatPaid || 0)
-    const refund = tax - zakat
-    return { totalRelief, chargeable, tax, zakat, refund }
+    const pcb = parseFloat(pcbPaid || 0)
+    const balance = tax - zakat - pcb
+    return { totalRelief, chargeable, tax, zakat, pcb, balance }
   }
 
   const result = annualIncome ? calculate() : null
@@ -119,15 +128,6 @@ export default function TaxCalculator() {
       </section>
 
       <section>
-        <h2 className="font-semibold mb-2 text-zinc-200">Zakat paid ({year})</h2>
-        <input type="number" placeholder="Total zakat paid this year" value={zakatPaid}
-          onChange={e => setZakatPaid(e.target.value)}
-          onBlur={() => saveZakat(zakatPaid)}
-          className={`${inputClass} w-full`} />
-        <p className="text-xs text-zinc-500 mt-1">Zakat acts as a direct tax rebate (reduces tax payable ringgit for ringgit).</p>
-      </section>
-
-      <section>
         <h2 className="font-semibold mb-2 text-zinc-200">Tax bands ({year}) — fill in when rates are known</h2>
         {brackets.map((b, i) => (
           <div key={b.id} className="flex gap-2 mb-1 items-center text-sm">
@@ -150,6 +150,28 @@ export default function TaxCalculator() {
       </section>
 
       <section>
+        <h2 className="font-semibold mb-2 text-zinc-200">Tax payments ({year})</h2>
+        <div className="grid gap-3">
+          <label className="text-sm text-zinc-400">
+            Zakat paid
+            <p className="text-xs text-zinc-500 mb-1">Acts as a direct tax rebate (ringgit for ringgit)</p>
+            <input type="number" placeholder="0.00" value={zakatPaid}
+              onChange={e => setZakatPaid(e.target.value)}
+              onBlur={saveSettings}
+              className={`${inputClass} w-full mt-1`} />
+          </label>
+          <label className="text-sm text-zinc-400">
+            PCB paid (total for the year)
+            <p className="text-xs text-zinc-500 mb-1">Sum of all monthly PCB deducted from your payslips</p>
+            <input type="number" placeholder="0.00" value={pcbPaid}
+              onChange={e => setPcbPaid(e.target.value)}
+              onBlur={saveSettings}
+              className={`${inputClass} w-full mt-1`} />
+          </label>
+        </div>
+      </section>
+
+      <section>
         <h2 className="font-semibold mb-2 text-zinc-200">Estimate</h2>
         <input type="number" placeholder="Projected annual income"
           value={annualIncome} onChange={e => setAnnualIncome(e.target.value)}
@@ -159,11 +181,12 @@ export default function TaxCalculator() {
             <Row label="Total relief" value={formatRM(result.totalRelief)} />
             <Row label="Chargeable income" value={formatRM(result.chargeable)} />
             <Row label="Estimated annual tax" value={formatRM(result.tax)} />
-            <Row label="Zakat paid" value={formatRM(result.zakat)} />
+            <Row label="Less: Zakat paid" value={`− ${formatRM(result.zakat)}`} />
+            <Row label="Less: PCB paid" value={`− ${formatRM(result.pcb)}`} />
             <Row
-              label="Total refund expected"
-              value={formatRM(Math.abs(result.refund))}
-              sub={result.refund > 0 ? '(tax still owed after zakat)' : result.refund < 0 ? '(refund expected)' : '(break even)'}
+              label={result.balance > 0 ? 'Tax still owed' : result.balance < 0 ? 'Refund expected' : 'Break even'}
+              value={formatRM(Math.abs(result.balance))}
+              sub={result.balance > 0 ? '(pay this to LHDN)' : result.balance < 0 ? '(claim this back)' : ''}
               highlight
             />
           </div>
@@ -176,7 +199,8 @@ export default function TaxCalculator() {
 function Row({ label, value, sub, highlight }) {
   return (
     <div className={`flex justify-between items-center px-3 py-2 ${highlight ? 'bg-fuchsia-950/40' : ''}`}>
-      <span className={highlight ? 'text-fuchsia-300 font-medium' : 'text-zinc-400'}>{label}
+      <span className={highlight ? 'text-fuchsia-300 font-medium' : 'text-zinc-400'}>
+        {label}
         {sub && <span className="ml-1 text-xs text-zinc-500">{sub}</span>}
       </span>
       <span className={highlight ? 'text-white font-semibold' : 'text-zinc-200'}>{value}</span>
