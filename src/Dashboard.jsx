@@ -14,7 +14,6 @@ function formatRM(n) {
 
 function formatDate(d) {
   if (!d) return ''
-  // Handle both YYYY-MM-DD and legacy YYYY-MM
   if (d.length === 7) return d
   const parts = d.split('-')
   if (parts.length < 3) return d
@@ -68,12 +67,13 @@ export default function Dashboard({ onEdit }) {
   const totalIncome = filtered.reduce((s, e) => s + sum(e, incomeKeys), 0)
   const totalDeduction = filtered.reduce((s, e) => s + sum(e, deductionKeys), 0)
   const totalPCB = filtered.reduce((s, e) => s + (e.pcb || 0), 0)
+  const totalAllowance = filtered.reduce((s, e) => s + (e.allowance || 0), 0)
+  const totalPetrol = filtered.reduce((s, e) => s + (e.petrol || 0), 0)
 
-  // Group by YYYY-MM for chart so same-month entries (e.g. salary + bonus) merge into one bar
   const chartData = useMemo(() => {
     const map = {}
     filtered.forEach(e => {
-      const key = e.entryDate?.slice(0, 7) // YYYY-MM
+      const key = e.entryDate?.slice(0, 7)
       const label = monthNames[parseInt(e.entryDate?.slice(5, 7), 10) - 1] || key
       if (!map[key]) map[key] = { month: label, net: 0 }
       map[key].net += sum(e, incomeKeys) - sum(e, deductionKeys)
@@ -138,6 +138,8 @@ export default function Dashboard({ onEdit }) {
         <Stat label="Total deductions" value={totalDeduction} />
         <Stat label="Net income" value={totalIncome - totalDeduction} highlight />
         <Stat label="PCB paid" value={totalPCB} />
+        <Stat label="Allowance" value={totalAllowance} />
+        <Stat label="Petrol" value={totalPetrol} />
       </div>
 
       <div className="mb-4">
